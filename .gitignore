@@ -1,3 +1,5 @@
 /apikey.txt
 .env
 /killmsg.txt
+/scores
+const.py
