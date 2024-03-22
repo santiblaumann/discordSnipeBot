@@ -15,7 +15,7 @@ async def on_ready():
     mes = await snipeBot.fetch_channel(allowed_channels[1])  # note initialization in test channel
     await mes.send(f"Live for score testing.")
     # mes2 = await snipeBot.fetch_channel(allowed_channels[0])
-    # await mes2.send(f"Live for score testing.")
+    # await mes2.send(f"Live with very rudamentary features.")
 
 
 @snipeBot.event
@@ -65,9 +65,9 @@ async def update_score(message):
     scores[sniper_id] = sniper_stats
     scores[snipee_id] = snipee_stats
 
-    sniper_total = scores[sniper_id]['kills']
-    sniper_snipee = scores[sniper_id][snipee_id]
-    snipee_death = scores[snipee_id]['deaths']
+    sniper_total = scores[sniper_id].get('kills', 1)
+    sniper_snipee = scores[sniper_id].get(snipee_id, 0)
+    snipee_death = scores[snipee_id].get('deaths', 1)
 
     with open('scores.pickle', 'wb') as file:
         pickle.dump(scores, file)

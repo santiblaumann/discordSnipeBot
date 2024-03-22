@@ -2,7 +2,7 @@
 
 This bot is meant to serve as a counting mechanism for "snipes". 
 
-In Cornell Culture (and college campuses nationally, I'd assume), a snipe is: when you see someone on campus or in public, you take a picture of them and it counts as a "snipe" if you can get a picture of them without being seen. You then post this in some dedicated snipes thread, and get laughed at for whatever dumb thing you might have been doing. 
+In Cornell Culture (and college campuses nationally, I'd assume), a snipe is: when you see someone on campus or in public, you take a picture of them and it counts as a "snipe" if you can get a picture of them without being seen. You then post this in some dedicated snipes thread, and they get laughed at for whatever dumb thing they might have been doing. 
 
 To up the ante, this bot is designed to keep a count of the "kill/death" ratio for snipes. When someone is tagged with an accompanying snipe picture, they gain one "kill" while the receipient receives a "death".
 
