@@ -21,21 +21,24 @@ async def on_ready():
 @snipeBot.event
 async def on_message(message):
     # check the following: robot isn't replying to itself, this message is in snipes, has an attachment, and an @ to tag someone
-    if (message.author.id == snipeBot.user.id or message.channel_id not in allowed_channels  
-        or len(message.attachments) == 0 or len(message.mentions) == 0):
+    if (message.author.id == snipeBot.user.id 
+        or message.channel_id not in allowed_channels  
+        or len(message.attachments) == 0 
+        or len(message.mentions) == 0
+        ):
         return
-    else:
-        print("A snipe has occured...")
-        result = await snipe_message(message)
-        # await message.channel.send("Score keeping has not been implemented yet. Stay tuned...")
-        verdict = await update_score(message)
-        await message.channel.send(result + "\n" + verdict)
-        return
+    print("A snipe has occured...")
+    result = await snipe_message(message)
+    # await message.channel.send("Score keeping has not been implemented yet. Stay tuned...")
+    verdict = await update_score(message)
+    await message.channel.send(f"{result}\n{verdict}")
+    return
 
 
 async def snipe_message(message):
+    # snipee should be a list. 
     sniper, snipee = await getNicknames(message)
-    return sniper + " sniped " + snipee + "!"
+    return (f"{sniper} sniped {snipee}!")
 
 
 async def update_score(message):
@@ -52,19 +55,23 @@ async def update_score(message):
         scores = pickle.load(file)
 
     sniper_id = message.author.id
-    snipee_id = message.mentions[0].id 
+    snipee_ids = [victim.id for victim in message.mentions]
 
     sniper_stats = scores.get(sniper_id, {})
-    sniper_stats['kills'] = sniper_stats.get('kills', 0) + 1
-    sniper_stats[snipee_id] = sniper_stats.get(snipee_id, 0) + 1
+    sniper_stats['kills'] = sniper_stats.get('kills', 0) + len(snipee_ids)  # add as many kills as people were sniped
 
+    # going to try to rewrite logic for snipe victims with a for loop. 
+    for snipee_id in snipee_ids:
+        sniper_stats[snipee_id] = sniper_stats.get(snipee_id, 0) + 1  # add a kill to head to head
 
-    snipee_stats = scores.get(snipee_id, {})
-    snipee_stats['deaths'] = snipee_stats.get('deaths', 0) + 1
+        snipee_stats = scores.get(snipee_id, {})  # get death count
+        snipee_stats['deaths'] = snipee_stats.get('deaths', 0) + 1
 
-    scores[sniper_id] = sniper_stats
-    scores[snipee_id] = snipee_stats
+    # snipees_stats = [scores.get(snipee_id, {}) for snipee_id in snipee_ids]  # get death counts of each person sniped, and
+    # [stats.update({'deaths': stats.get('deaths', 0) + 1}) for stats in snipees_stats]  # update all death counts
 
+    # scores[sniper_id] = sniper_stats
+    # scores[snipee_id] = snipee_stats
     sniper_total = scores[sniper_id].get('kills', 1)
     sniper_snipee = scores[sniper_id].get(snipee_id, 0)
     snipee_death = scores[snipee_id].get('deaths', 1)
@@ -84,11 +91,12 @@ async def update_score(message):
 async def getNicknames(message):
     """This might break compatibility later if we decide to add sniping in two messages.
     Expects a valid snipe message. """
+    # snipee should be a list. 
     serv = message.server
     sniper = await serv.fetch_member(message.author.id)
-    snipee = await serv.fetch_member(message.mentions[0].id)
+    snipee = [await serv.fetch_member(mention.id) for mention in message.mentions]
     sniper = get_first_name(sniper)
-    snipee = get_first_name(snipee)
+    snipee = [get_first_name(id) for id in snipee]
     return (sniper, snipee)
 
 def get_first_name(nam):

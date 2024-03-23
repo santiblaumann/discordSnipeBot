@@ -3,3 +3,5 @@
 /killmsg.txt
 /scores
 const.py
+bot.log
+scores.pickle
