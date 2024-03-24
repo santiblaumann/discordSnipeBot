@@ -1,4 +1,5 @@
 import guilded, pickle, os
+from typing import Any, List
 import const
 
 token = const.API_TOKEN  # purposefully obfuscated
@@ -28,17 +29,10 @@ async def on_message(message):
         ):
         return
     print("A snipe has occured...")
-    result = await snipe_message(message)
     # await message.channel.send("Score keeping has not been implemented yet. Stay tuned...")
     verdict = await update_score(message)
-    await message.channel.send(f"{result}\n{verdict}")
+    await message.channel.send(verdict)
     return
-
-
-async def snipe_message(message):
-    # snipee should be a list. 
-    sniper, snipee = await getNicknames(message)
-    return (f"{sniper} sniped {snipee}!")
 
 
 async def update_score(message):
@@ -50,47 +44,47 @@ async def update_score(message):
     # if sniper has never recorded a snipe, add them to the dictionary. 
     # every user ID is unique. this should be fine. 
 
+    sniper_id = message.author.id
+    snipee_ids = [victim.id for victim in message.mentions]
+
     # grab the pickle file, unpickle it, make changes as needed to update score
     with open('scores.pickle', 'rb') as file:
         scores = pickle.load(file)
 
-    sniper_id = message.author.id
-    snipee_ids = [victim.id for victim in message.mentions]
-
     sniper_stats = scores.get(sniper_id, {})
     sniper_stats['kills'] = sniper_stats.get('kills', 0) + len(snipee_ids)  # add as many kills as people were sniped
+    scores[sniper_id] = sniper_stats
 
-    # going to try to rewrite logic for snipe victims with a for loop. 
+    # victims 
     for snipee_id in snipee_ids:
         sniper_stats[snipee_id] = sniper_stats.get(snipee_id, 0) + 1  # add a kill to head to head
 
         snipee_stats = scores.get(snipee_id, {})  # get death count
-        snipee_stats['deaths'] = snipee_stats.get('deaths', 0) + 1
-
-    # snipees_stats = [scores.get(snipee_id, {}) for snipee_id in snipee_ids]  # get death counts of each person sniped, and
-    # [stats.update({'deaths': stats.get('deaths', 0) + 1}) for stats in snipees_stats]  # update all death counts
-
-    # scores[sniper_id] = sniper_stats
-    # scores[snipee_id] = snipee_stats
-    sniper_total = scores[sniper_id].get('kills', 1)
-    sniper_snipee = scores[sniper_id].get(snipee_id, 0)
-    snipee_death = scores[snipee_id].get('deaths', 1)
+        snipee_stats['deaths'] = snipee_stats.get('deaths', 0) + 1  # update death count
+        scores[snipee_id] = snipee_stats
 
     with open('scores.pickle', 'wb') as file:
         pickle.dump(scores, file)
     
     sniper_nick, snipee_nick = await getNicknames(message)
-
-    # now, return the string to be outputted in the message. 
-    kill = " snipe" if (sniper_total <= 1) else " snipes"
-    time = " time." if (snipee_death <= 1) else " times."
-
-    return (sniper_nick + " has " + str(sniper_total) + kill + ", with " + str(sniper_snipee) + " being against " + snipee_nick + ".\n" + 
-            snipee_nick + " has been sniped " + str(snipee_death) + time)
+    if len(snipee_ids) == 1:
+        return single_kill_msg(sniper_nick, # sniper
+                               snipee_nick[0], # victim
+                               scores[sniper_id].get('kills', 1), # sniper total kill count
+                               scores[sniper_id].get(snipee_ids[0], 0),  # h2h
+                               scores[snipee_ids[0]].get('deaths', 1))  # deaths
     
+    head2heads = [scores[sniper_id].get(snipee_id, 1) for snipee_id in snipee_ids]
+    deaths = [scores[snipee_id].get('deaths', 1) for snipee_id in snipee_ids]
+    return multi_kill_msg(sniper_nick, # sniper
+                          snipee_nick, # victims
+                          scores[sniper_id].get('kills', 1), # sniper total kill count
+                          head2heads,  #h2h list
+                          deaths  # deaths count
+                          )
+
 async def getNicknames(message):
-    """This might break compatibility later if we decide to add sniping in two messages.
-    Expects a valid snipe message. """
+    """Expects a valid snipe message. """
     # snipee should be a list. 
     serv = message.server
     sniper = await serv.fetch_member(message.author.id)
@@ -105,5 +99,36 @@ def get_first_name(nam):
     except AttributeError:
         res, *_ = nam.name.strip().split(' ')
     return res
+
+def single_kill_msg(sniper, snipee, killcount, h2h, death):
+    # kill = "snipe" if (sniper <= 1)
+    kill = "snipe" if (killcount <= 1) else "snipes"
+    time = "time" if (death <= 1) else "times"
+    return (f"{sniper} has {killcount} {kill}, with {h2h} being against {snipee}.\n{snipee} has been sniped {death} {time}.")
+
+def multi_kill_msg(sniper, snipees, killcount, h2h, deaths):
+    intro = "Oh baby a triple!" if (len(snipees) == 3) else "Multisnipe!"
+    # victims = readable_list(snipees)
+    obituary = (f"{sniper} has sniped ")  # funny name lol
+    death = ''
+    # return (f"""{intro} {sniper} has sniped {victims}. {sniper} now has {killcount} snipes.
+    #         \n {sniper} has sniped {victims} {readable_list(h2h)} times respectively.
+    #         \n {victims} have been sniped {readable_list(deaths)} respectively.""")
+    for x in range(len(snipees)):
+        time = "time" if (h2h[x] <= 1) else "times"
+        # grammar - last element will have "and" with oxford comma
+        obituary += f"{snipees[x]} {h2h[x]} {time}, " + ("and " if x == (len(snipees) - 2) else '')
+        time = "time" if (int(deaths[x]) <= 1) else "times"
+        death += (f"{snipees[x]} has been sniped {deaths[x]} {time}. ")
+        pass
+    obituary = obituary[:-2] + '.'
+    return (f"""{intro} {sniper} has sniped {readable_list(snipees)}.\n{sniper} has {killcount} snipes.\n{obituary}\n{death}""")
+        
+
+def readable_list(s):
+  if len(s) < 3:
+    return ' and '.join(map(str, s))
+  *a, b = s
+  return f"{', '.join(map(str, a))}, and {b}"
 
 snipeBot.run(token)
