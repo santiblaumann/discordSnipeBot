@@ -104,7 +104,7 @@ def single_kill_msg(sniper, snipee, killcount, h2h, death):
     # kill = "snipe" if (sniper <= 1)
     kill = "snipe" if (killcount <= 1) else "snipes"
     time = "time" if (death <= 1) else "times"
-    return (f"{sniper} has {killcount} {kill}, with {h2h} being against {snipee}.\n{snipee} has been sniped {death} {time}.")
+    return (f"{sniper} sniped {snipee}!\n{sniper} has {killcount} {kill}, with {h2h} being against {snipee}.\n{snipee} has been sniped {death} {time}.")
 
 def multi_kill_msg(sniper, snipees, killcount, h2h, deaths):
     intro = "Oh baby a triple!" if (len(snipees) == 3) else "Multisnipe!"
