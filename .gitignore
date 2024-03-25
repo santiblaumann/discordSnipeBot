@@ -5,6 +5,6 @@
 const.py
 bot.log
 scores.pickle
-score_archive
+/score_archive
 nohup.out
 /__pycache__

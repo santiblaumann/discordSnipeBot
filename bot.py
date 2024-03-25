@@ -53,14 +53,18 @@ async def update_score(message):
 
     sniper_stats = scores.get(sniper_id, {})
     sniper_stats['kills'] = sniper_stats.get('kills', 0) + len(snipee_ids)  # add as many kills as people were sniped
+    sniper_stats['killstreak'] = sniper_stats.get('killstreak', 0) + len(snipee_ids)  # update sniper killstreak
     scores[sniper_id] = sniper_stats
 
+    victims_snap = []
     # victims 
     for snipee_id in snipee_ids:
         sniper_stats[snipee_id] = sniper_stats.get(snipee_id, 0) + 1  # add a kill to head to head
 
         snipee_stats = scores.get(snipee_id, {})  # get death count
         snipee_stats['deaths'] = snipee_stats.get('deaths', 0) + 1  # update death count
+        victims_snap.append(snipee_stats.get('killstreak', 0))
+        snipee_stats['killstreak'] = 0  # snap killstreak
         scores[snipee_id] = snipee_stats
 
     with open('scores.pickle', 'wb') as file:
@@ -72,7 +76,10 @@ async def update_score(message):
                                snipee_nick[0], # victim
                                scores[sniper_id].get('kills', 1), # sniper total kill count
                                scores[sniper_id].get(snipee_ids[0], 0),  # h2h
-                               scores[snipee_ids[0]].get('deaths', 1))  # deaths
+                               scores[snipee_ids[0]].get('deaths', 1),  # deaths
+                               scores[sniper_id].get('killstreak', 1),  # killstreak
+                               victims_snap[0])  # snapped victim killstreak (if only 1 victim this is fine, multi will have a list)
+                             
     
     head2heads = [scores[sniper_id].get(snipee_id, 1) for snipee_id in snipee_ids]
     deaths = [scores[snipee_id].get('deaths', 1) for snipee_id in snipee_ids]
@@ -80,7 +87,8 @@ async def update_score(message):
                           snipee_nick, # victims
                           scores[sniper_id].get('kills', 1), # sniper total kill count
                           head2heads,  #h2h list
-                          deaths  # deaths count
+                          deaths,  # deaths count
+                          victims_snap
                           )
 
 async def getNicknames(message):
@@ -100,29 +108,31 @@ def get_first_name(nam):
         res, *_ = nam.name.strip().split(' ')
     return res
 
-def single_kill_msg(sniper, snipee, killcount, h2h, death):
+def single_kill_msg(sniper, snipee, killcount, h2h, death, streak_sniper, snapped):
+    # refactor later to just take scores dictionary as opposed to all these variables
     # kill = "snipe" if (sniper <= 1)
     kill = "snipe" if (killcount <= 1) else "snipes"
     time = "time" if (death <= 1) else "times"
-    return (f"{sniper} sniped {snipee}!\n{sniper} has {killcount} {kill}, with {h2h} being against {snipee}.\n{snipee} has been sniped {death} {time}.")
+    mess = (f"{sniper} sniped {snipee}!\n{sniper} has {killcount} {kill}, with {h2h} being against {snipee}.\n{snipee} has been sniped {death} {time}.")
+    mess += (f"\n{sniper} now has a killstreak of {streak_sniper}.") if streak_sniper > 1 else ""
+    mess += (f"\nOh no! {snipee} had their killstreak of {snapped} snapped! Womp womp.") if snapped > 1 else ""
+    return mess
 
-def multi_kill_msg(sniper, snipees, killcount, h2h, deaths):
+def multi_kill_msg(sniper, snipees, killcount, h2h, deaths, snapped):
     intro = "Oh baby a triple!" if (len(snipees) == 3) else "Multisnipe!"
-    # victims = readable_list(snipees)
     obituary = (f"{sniper} has sniped ")  # funny name lol
     death = ''
-    # return (f"""{intro} {sniper} has sniped {victims}. {sniper} now has {killcount} snipes.
-    #         \n {sniper} has sniped {victims} {readable_list(h2h)} times respectively.
-    #         \n {victims} have been sniped {readable_list(deaths)} respectively.""")
+    snaplist = ''
     for x in range(len(snipees)):
         time = "time" if (h2h[x] <= 1) else "times"
         # grammar - last element will have "and" with oxford comma
         obituary += f"{snipees[x]} {h2h[x]} {time}, " + ("and " if x == (len(snipees) - 2) else '')
         time = "time" if (int(deaths[x]) <= 1) else "times"
         death += (f"{snipees[x]} has been sniped {deaths[x]} {time}. ")
+        snaplist += (f"{snipees[x]} had their killstreak of {snapped[x]} snapped. ") if snapped[x] > 1 else ''
         pass
     obituary = obituary[:-2] + '.'
-    return (f"""{intro} {sniper} has sniped {readable_list(snipees)}.\n{sniper} has {killcount} snipes.\n{obituary}\n{death}""")
+    return (f"""{intro} {sniper} has sniped {readable_list(snipees)}.\n{sniper} has {killcount} snipes.\n{obituary}\n{death}\n{snaplist}""")
         
 
 def readable_list(s):
