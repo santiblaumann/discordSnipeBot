@@ -5,3 +5,5 @@
 const.py
 bot.log
 scores.pickle
+score_archive
+nohup.out
