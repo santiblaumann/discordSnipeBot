@@ -7,3 +7,4 @@ bot.log
 scores.pickle
 score_archive
 nohup.out
+/__pycache__
