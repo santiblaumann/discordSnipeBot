@@ -1,4 +1,4 @@
-import guilded, pickle, os
+import guilded, pickle, os, random
 from typing import Any, List
 import const
 
@@ -25,8 +25,11 @@ async def on_message(message):
     if (message.author.id == snipeBot.user.id 
         or message.channel_id not in allowed_channels  
         or len(message.attachments) == 0 
-        or len(message.mentions) == 0
+        or len(message.mentions) == 0 
         ):
+        return
+    elif message.author.id in [mention.id for mention in message.mentions]:
+        await message.channel.send(random.choice(const.SELFSNIPE))
         return
     print("A snipe has occured...")
     # await message.channel.send("Score keeping has not been implemented yet. Stay tuned...")

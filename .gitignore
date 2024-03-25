@@ -1,10 +1,9 @@
 /apikey.txt
 .env
 /killmsg.txt
-/scores
 const.py
 bot.log
 scores.pickle
 /score_archive
 nohup.out
-/__pycache__
+__pycache__/
