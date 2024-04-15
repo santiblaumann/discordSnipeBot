@@ -25,7 +25,7 @@ if not os.path.exists('alltime.pickle'):
 async def on_ready():
     print("Bot is ready.")
     mes = await snipeBot.fetch_channel(allowed_channels[1])  # note initialization in test channel
-    await mes.send(f"Live for score testing.")
+    await mes.send(f"Ready")
 
 
 @snipeBot.event
@@ -36,6 +36,7 @@ async def on_message(message):
         if const.LEADS not in await message.author.fetch_role_ids():
             await message.channel.send("Only leads can undo snipes.")
         else:
+            print("Undoing a snipe")
             await undo(await message.channel.fetch_message(message.replied_to_ids[0]))  # call this on parent message to grab all data
         return
     # check the following: robot isn't replying to itself, this message is in snipes, has an attachment, and an @ to tag someone
@@ -45,7 +46,9 @@ async def on_message(message):
         or len(message.mentions) == 0 
         ):
         return
-    elif message.author.id in [mention.id for mention in message.mentions]:
+    # someone is sniping themselves
+    elif message.author.id in [mention.id for mention in message.mentions] and len(message.attachments) != 0:
+        print("Self-Snipe detected")
         await message.channel.send(random.choice(const.SELFSNIPE))
         return
     print("A snipe has occured...")
@@ -132,13 +135,14 @@ async def undo(message):
     # grab original message, and undo the snipe. 
     # open both dictionaries to iterate over them. This logic is messy but avoids any crashes that could result from file not existing
     if message.attachments == [] or message.mentions == []: 
-        await message.channel.send("Not a valid snipe message.")
+        await message.channel.send("Undo can only be called on a snipe message.")
         return
-    await message.channel.send("Attempting to undo snipe...")
-    scoresheets = []  # this will be a list containing scores.pickle, alltime.pickle UNLESS one is missing
+    await message.channel.send("Undoing snipe...")
+    scoresheets = []  # this will be a list containing scores.pickle, alltime.pickle
+    # all logic should assume two copies of dictionary are in play 
     try:
         with open('scores.pickle', 'rb') as file:
-            scoresheets.append((pickle.load(file), 'scores'))  # grab scoresheet, and denote that its current
+            scoresheets.append((pickle.load(file), 'scores.pickle'))  # grab scoresheet, and denote that its current
         if scoresheets[0] == {}:
             await message.channel.send("No scores exist for this semester yet. Attempting to remove from alltime scoring...")  # this is a hyper niche situation but could happen on semester reset
     except FileNotFoundError:
@@ -146,15 +150,14 @@ async def undo(message):
         return
     try:
         with open('alltime.pickle', 'rb') as file:
-            scoresheets.append((pickle.load(file), 'alltime'))  # grab scoresheet and denote its alltime
+            scoresheets.append((pickle.load(file), 'alltime.pickle'))  # grab scoresheet and denote its alltime
     except FileNotFoundError:
         await message.channel.send("No alltime scorefile can be found. If you're seeing this, something really fucked up.")
         return
     # this shouldn't be necessary?
-    # eventually make a "pair" saying which dict is which in case one of these fails
     # now, go through this list, removing the snipe from each one
-    scoresheetsnipers = [records[0].get(message.author.id, {}) for records in scoresheets]  # [current, alltime]
-    for scores in scoresheetsnipers:
+    scoresheetsnipers = [(message.author.id, records[0].get(message.author.id, {})) for records in scoresheets]  # [(current, "scores"), (alltime, "alltime")]
+    for _, scores in scoresheetsnipers:
         # sniper general
         scores['kills'] = scores.get('kills', 1) - 1
         scores['killstreak'] = max(scores.get('killstreak', 1) - 1, 0)
@@ -163,16 +166,26 @@ async def undo(message):
         # victim specific
         for victim in message.mentions:
             scores[victim.id] = scores.get(victim.id, 1) - 1
-    await message.channel.send(str(scoresheetsnipers))
-    victimlists = [[score[0].get(victim.id, {}) for victim in message.mentions] for score in scoresheets]  # grab scoresheets for all victims across both pickled dictionaries
+
+    victimlists = [[(victim.id, score[0].get(victim.id, {})) for victim in message.mentions] for score in scoresheets]  # grab scoresheets for all victims across both pickled dictionaries
     for victimscores in victimlists:
-        for victimdict in victimscores:  # victimdict is each individual dictionary
+        for _, victimdict in victimscores:  # victimdict is each individual dictionary
             # how to do killstreak?
             victimdict['deaths'] = victimdict.get('deaths', 1) - 1  # remove death
             victimdict['killstreak'] = victimdict.get('lastkillstreak', 0)  # restore previous killstreak
-    # all should be undone, now put back into files
-    # await message.channel.send(str(victimlists))
-    # print(victimlists)
+
+    # TODO: all should be undone, now put back into files
+    for index in range(len(scoresheets)):
+        # as scoresheets is used to make both snipelist and victimlist indexes should match
+        # snipe[index][0] is sniper id, snipe[index][1] is their dictionary
+        scoresheets[index][0][scoresheetsnipers[index][0]] = scoresheetsnipers[index][1]  # sniper update
+        for victimid, victimdict in victimlists[index]:
+            scoresheets[index][0][victimid] = victimdict  # victim update
+        with open(scoresheets[index][1], 'wb') as file:
+            pickle.dump(scoresheets[index][0], file)
+    
+    await message.channel.send("Done.")
+    return
 
 async def getNicknames(message):
     """Expects a valid snipe message. """
