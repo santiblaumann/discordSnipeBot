@@ -1,7 +1,6 @@
 /apikey.txt
 .env
 /killmsg.txt
-const.py
 bot.log
 scores.pickle
 alltime.pickle

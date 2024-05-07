@@ -1,10 +1,14 @@
 import guilded, pickle, os, random, shutil
 from typing import Any, List
+from dotenv import load_dotenv
 import const
 
-token = const.API_TOKEN  # purposefully obfuscated
+load_dotenv()
+
+testing = False  # Set to True when testing, false when pushing to remote code
+token = os.environ.get("API_TOKEN")  # purposefully obfuscated
 snipeBot = guilded.Client()
-allowed_channels = const.ALLOWED_CHANNELS
+current_channel = os.environ.get("TEST_CHANNEL") if testing else os.environ.get("SNIPE_CHANNEL")
 
 # creates scores - only if ran on a new machine, or if scores reset for semester
 if not os.path.exists('scores.pickle'):
@@ -24,24 +28,25 @@ if not os.path.exists('alltime.pickle'):
 @snipeBot.event
 async def on_ready():
     print("Bot is ready.")
-    mes = await snipeBot.fetch_channel(allowed_channels[1])  # note initialization in test channel
+    mes = await snipeBot.fetch_channel(current_channel)  # note initialization in test channel
     await mes.send(f"Ready")
 
 
 @snipeBot.event
 async def on_message(message):
     # check if this is a valid attempt to undo
-    # await message.channel.send(dir(message))
     if (message.replied_to_ids != [] and "!undo" in message.content):
-        if const.LEADS not in await message.author.fetch_role_ids():
+        if int(os.environ.get("LEADS_ID")) not in await message.author.fetch_role_ids():
             await message.channel.send("Only leads can undo snipes.")
+            await message.channel.send(await message.author.fetch_role_ids())
+            # await message.channel.send(r)
         else:
             print("Undoing a snipe")
             await undo(await message.channel.fetch_message(message.replied_to_ids[0]))  # call this on parent message to grab all data
         return
     # check the following: robot isn't replying to itself, this message is in snipes, has an attachment, and an @ to tag someone
     elif (message.author.id == snipeBot.user.id 
-        or message.channel_id not in allowed_channels  
+        or message.channel_id != current_channel
         or len(message.attachments) == 0 
         or len(message.mentions) == 0 
         ):
@@ -49,7 +54,7 @@ async def on_message(message):
     # someone is sniping themselves
     elif message.author.id in [mention.id for mention in message.mentions] and len(message.attachments) != 0:
         print("Self-Snipe detected")
-        await message.channel.send(random.choice(const.SELFSNIPE))
+        await message.channel.send(random.choice(const.SELFSNIPE))  # make fun of them
         return
     print("A snipe has occured...")
     # await message.channel.send("Score keeping has not been implemented yet. Stay tuned...")
@@ -218,7 +223,7 @@ def single_kill_msg(sniper, snipee, killcount, h2h, death, sniper_killstreak, sn
 def multi_kill_msg(sniper, snipees, killcount, h2h, deaths, sniper_killstreak, snapped):
     # TODO: Add an update to sniper killstreak, as it will change. 
     intro = "Oh baby a triple!" if (len(snipees) == 3) else "Multisnipe!"
-    obituary = (f"{sniper} has sniped ")  # funny name lol
+    obituary = (f"{sniper} has sniped ")  # lists kills
     death = ''
     snaplist = ''
     for x in range(len(snipees)):
