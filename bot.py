@@ -217,7 +217,7 @@ def single_kill_msg(sniper, snipee, killcount, h2h, death, sniper_killstreak, sn
     time = "time" if (death <= 1) else "times"
     mess = (f"{sniper} sniped {snipee}!\n{sniper} has {killcount} {kill}, with {h2h} being against {snipee}.\n{snipee} has been sniped {death} {time}.")
     mess += (f"\n{sniper} now has a killstreak of {sniper_killstreak}.") if sniper_killstreak > 1 else ""
-    mess += (f"\nOh no! {snipee} had their killstreak of {snapped} snapped! Womp womp.") if snapped > 1 else ""
+    mess += (f"\nOh no! {snipee} had their killstreak of {snapped} snapped! {random.choice(const.STREAKBREAK)}") if snapped > 1 else ""
     return mess
 
 def multi_kill_msg(sniper, snipees, killcount, h2h, deaths, sniper_killstreak, snapped):
