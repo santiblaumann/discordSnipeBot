@@ -28,7 +28,7 @@ if not os.path.exists('alltime.pickle'):
 @snipeBot.event
 async def on_ready():
     print("Bot is ready.")
-    mes = await snipeBot.fetch_channel(current_channel)  # note initialization in test channel
+    mes = await snipeBot.fetch_channel(current_channel) if testing else await snipeBot.fetch_channel(os.environ.get("PING_CHANNEL")) # if not in testing use ping channel
     await mes.send(f"Ready")
 
 
