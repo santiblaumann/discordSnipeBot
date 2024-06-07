@@ -5,7 +5,7 @@ import const
 
 load_dotenv()
 
-testing = True  # Set to True when testing, false when pushing to remote code
+testing = False  # Set to True when testing, false when pushing to remote code
 token = os.environ.get("API_TOKEN")  # purposefully obfuscated
 snipeBot = guilded.Client()
 current_channel = os.environ.get("TEST_CHANNEL") if testing else os.environ.get("SNIPE_CHANNEL")
@@ -57,9 +57,10 @@ async def on_message(message):
         await message.channel.send(random.choice(const.SELFSNIPE))  # make fun of them
         return
     print("A snipe has occured...")
+    # await message.channel.send("Score keeping has not been implemented yet. Stay tuned...")
     verdict = await update_score(message)
     await message.channel.send(verdict)
-    await update_score(message, True)  # update alltime leaderboard
+    await update_score(message, True)
     return
     
     
@@ -178,6 +179,7 @@ async def undo(message):
             victimdict['deaths'] = victimdict.get('deaths', 1) - 1  # remove death
             victimdict['killstreak'] = victimdict.get('lastkillstreak', 0)  # restore previous killstreak
 
+    # TODO: all should be undone, now put back into files
     for index in range(len(scoresheets)):
         # as scoresheets is used to make both snipelist and victimlist indexes should match
         # snipe[index][0] is sniper id, snipe[index][1] is their dictionary
@@ -232,7 +234,7 @@ def multi_kill_msg(sniper, snipees, killcount, h2h, deaths, sniper_killstreak, s
         snaplist += (f"{snipees[x]} had their killstreak of {snapped[x]} snapped. ") if snapped[x] > 1 else ''
         pass
     obituary = obituary[:-2] + '.'
-    killstreak = (f"{sniper} now has a killstreak of {sniper_killstreak}.")
+    killstreak = (f"{sniper} now has a killstreak of {sniper_killstreak + len(snipees)}.")
     return (f"""{intro} {sniper} has sniped {readable_list(snipees)}.\n{sniper} has {killcount} snipes.\n{obituary}\n{death}\n{snaplist}\n{killstreak}""")
         
 
