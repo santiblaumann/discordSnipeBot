@@ -1,14 +1,18 @@
-import guilded, pickle, os, random, shutil
+import discord, pickle, os, random, shutil, sys
 from typing import Any, List
 from dotenv import load_dotenv
 import const
 
 load_dotenv()
 
-testing = False  # Set to True when testing, false when pushing to remote code
+testing = os.environ.get("TESTING") # Set to True when testing, false when pushing to remote code
 token = os.environ.get("API_TOKEN")  # purposefully obfuscated
-snipeBot = guilded.Client()
-current_channel = os.environ.get("TEST_CHANNEL") if testing else os.environ.get("SNIPE_CHANNEL")
+
+# set intents for bot
+intents = discord.Intents.default()
+intents.message_content = True
+snipeBot = discord.Client(intents=intents)
+current_channel = int(os.environ.get("TEST_CHANNEL") if testing else os.environ.get("SNIPE_CHANNEL"))
 
 # creates scores - only if ran on a new machine, or if scores reset for semester
 if not os.path.exists('scores.pickle'):
@@ -28,25 +32,23 @@ if not os.path.exists('alltime.pickle'):
 @snipeBot.event
 async def on_ready():
     print("Bot is ready.")
-    mes = await snipeBot.fetch_channel(current_channel) if testing else await snipeBot.fetch_channel(os.environ.get("PING_CHANNEL")) # if not in testing use ping channel
+    mes = await snipeBot.fetch_channel(current_channel) if testing else await snipeBot.fetch_channel(os.environ.get("PING_CHANNEL"))
     await mes.send(f"Ready")
 
 
 @snipeBot.event
 async def on_message(message):
-    # check if this is a valid attempt to undo
-    if (message.replied_to_ids != [] and "!undo" in message.content):
-        if int(os.environ.get("LEADS_ID")) not in await message.author.fetch_role_ids():
+    if (message.reference and "!undo" in message.content):
+        author_role_ids = [role.id for role in message.author.roles]
+        if int(os.environ.get("LEADS_ID")) not in author_role_ids:
             await message.channel.send("Only leads can undo snipes.")
-            await message.channel.send(await message.author.fetch_role_ids())
-            # await message.channel.send(r)
         else:
             print("Undoing a snipe")
-            await undo(await message.channel.fetch_message(message.replied_to_ids[0]))  # call this on parent message to grab all data
+            await undo(await message.channel.fetch_message(message.reference.message_id))  # call this on parent message to grab all data
         return
     # check the following: robot isn't replying to itself, this message is in snipes, has an attachment, and an @ to tag someone
     elif (message.author.id == snipeBot.user.id 
-        or message.channel_id != current_channel
+        or message.channel.id != current_channel
         or len(message.attachments) == 0 
         or len(message.mentions) == 0 
         ):
@@ -139,8 +141,9 @@ async def undo(message):
     This method will undo the snipe of the current message passed through - NOT the parent message."""
     # grab original message, and undo the snipe. 
     # open both dictionaries to iterate over them. This logic is messy but avoids any crashes that could result from file not existing
-    if message.attachments == [] or message.mentions == []: 
+    if not message.attachments or not message.mentions:
         await message.channel.send("Undo can only be called on a snipe message.")
+        print("Snipe was called on an invalid message.")
         return
     await message.channel.send("Undoing snipe...")
     scoresheets = []  # this will be a list containing scores.pickle, alltime.pickle
@@ -161,13 +164,14 @@ async def undo(message):
         return
     # this shouldn't be necessary?
     # now, go through this list, removing the snipe from each one
+    victimcount = len(message.mentions)
     scoresheetsnipers = [(message.author.id, records[0].get(message.author.id, {})) for records in scoresheets]  # [(current, "scores"), (alltime, "alltime")]
     for _, scores in scoresheetsnipers:
         # sniper general
-        scores['kills'] = scores.get('kills', 1) - 1
-        scores['killstreak'] = max(scores.get('killstreak', 1) - 1, 0)
+        scores['kills'] = scores.get('kills', victimcount) - victimcount
+        scores['killstreak'] = max(scores.get('killstreak', victimcount) - victimcount, 0)
         if scores.get('iscurrentbest', False):  # this would only run on alltime
-            scores['beststreak'] = scores.get('beststreak', 1) - 1  # this should never pull default value, but... lol
+            scores['beststreak'] = scores.get('beststreak', victimcount) - victimcount  # this should never pull default value, but... lol
         # victim specific
         for victim in message.mentions:
             scores[victim.id] = scores.get(victim.id, 1) - 1
@@ -193,21 +197,19 @@ async def undo(message):
     return
 
 async def getNicknames(message):
-    """Expects a valid snipe message. """
-    # snipee should be a list. 
-    serv = message.server
-    sniper = await serv.fetch_member(message.author.id)
-    snipee = [await serv.fetch_member(mention.id) for mention in message.mentions]
-    sniper = get_first_name(sniper)
-    snipee = [get_first_name(id) for id in snipee]
+    """Expects a valid snipe message. 
+    
+    Returns: tuple containing:
+    Sniper: str - First name of either nickname or discord name
+    Snipee: list[str] - list of first names of snipe victims"""
+    sniper = get_first_name(message.author)  
+    snipee = [get_first_name(victim) for victim in message.mentions]
     return (sniper, snipee)
 
 def get_first_name(nam):
-    try:
-        res, *_ = nam.nick.strip().split(' ')
-    except AttributeError:
-        res, *_ = nam.name.strip().split(' ')  # use regular Guilded name
+    res, *_ = nam.display_name.strip().split(' ')
     return res
+
 
 def single_kill_msg(sniper, snipee, killcount, h2h, death, sniper_killstreak, snapped):
     """Create the string the bot uses when a single person has been sniped. """
@@ -226,6 +228,7 @@ def multi_kill_msg(sniper, snipees, killcount, h2h, deaths, sniper_killstreak, s
     obituary = (f"{sniper} has sniped ")  # lists kills
     death = ''
     snaplist = ''
+    # generate informative part of kill message
     for x in range(len(snipees)):
         time = "time" if (h2h[x] <= 1) else "times"
         obituary += f"{snipees[x]} {h2h[x]} {time}, " + ("and " if x == (len(snipees) - 2) else '')
@@ -234,7 +237,7 @@ def multi_kill_msg(sniper, snipees, killcount, h2h, deaths, sniper_killstreak, s
         snaplist += (f"{snipees[x]} had their killstreak of {snapped[x]} snapped. ") if snapped[x] > 1 else ''
         pass
     obituary = obituary[:-2] + '.'
-    killstreak = (f"{sniper} now has a killstreak of {sniper_killstreak + len(snipees)}.")
+    killstreak = (f"{sniper} now has a killstreak of {sniper_killstreak}.")
     return (f"""{intro} {sniper} has sniped {readable_list(snipees)}.\n{sniper} has {killcount} snipes.\n{obituary}\n{death}\n{snaplist}\n{killstreak}""")
         
 

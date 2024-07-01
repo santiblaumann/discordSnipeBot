@@ -1,9 +1,8 @@
-/apikey.txt
 .env
-/killmsg.txt
-bot.log
 scores.pickle
 alltime.pickle
+scores.pickle.bkp
+alltime.pickle.bkp
 /score_archive
 nohup.out
-__pycache__/
+src/__pycache__/
