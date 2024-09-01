@@ -5,14 +5,15 @@ import const
 
 load_dotenv()
 
-testing = os.environ.get("TESTING") # Set to True when testing, false when pushing to remote code
+testing = False # Set to True when testing, false when pushing to remote code
+# testing = os.environ.get("TESTING")
 token = os.environ.get("API_TOKEN")  # purposefully obfuscated
 
 # set intents for bot
 intents = discord.Intents.default()
 intents.message_content = True
 snipeBot = discord.Client(intents=intents)
-current_channel = int(os.environ.get("TEST_CHANNEL") if testing else os.environ.get("SNIPE_CHANNEL"))
+current_channel = int(os.environ.get("TEST_CHANNEL")) if testing else int(os.environ.get("SNIPE_CHANNEL"))
 
 # creates scores - only if ran on a new machine, or if scores reset for semester
 if not os.path.exists('scores.pickle'):
@@ -38,6 +39,8 @@ async def on_ready():
 
 @snipeBot.event
 async def on_message(message):
+#    print(message.channel.id)
+    print(current_channel)
     if (message.reference and "!undo" in message.content):
         author_role_ids = [role.id for role in message.author.roles]
         if int(os.environ.get("LEADS_ID")) not in author_role_ids:

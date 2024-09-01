@@ -5,4 +5,4 @@ scores.pickle.bkp
 alltime.pickle.bkp
 /score_archive
 nohup.out
-src/__pycache__/
+__pycache__/
