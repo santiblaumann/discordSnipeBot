@@ -5,7 +5,7 @@ import const
 
 load_dotenv()
 
-testing = True # Set to True when testing, false when pushing to remote code
+testing = False # Set to True when testing, false when pushing to remote code
 # testing = os.environ.get("TESTING")
 token = os.environ.get("API_TOKEN")  # purposefully obfuscated
 
