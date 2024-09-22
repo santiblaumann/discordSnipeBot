@@ -5,7 +5,7 @@ import const
 
 load_dotenv()
 
-testing = False # Set to True when testing, false when pushing to remote code
+testing = True # Set to True when testing, false when pushing to remote code
 # testing = os.environ.get("TESTING")
 token = os.environ.get("API_TOKEN")  # purposefully obfuscated
 
@@ -39,15 +39,21 @@ async def on_ready():
 
 @snipeBot.event
 async def on_message(message):
-#    print(message.channel.id)
-    print(current_channel)
+    author_role_ids = [role.id for role in message.author.roles]
     if (message.reference and "!undo" in message.content):
-        author_role_ids = [role.id for role in message.author.roles]
         if int(os.environ.get("LEADS_ID")) not in author_role_ids:
             await message.channel.send("Only leads can undo snipes.")
         else:
             print("Undoing a snipe")
             await undo(await message.channel.fetch_message(message.reference.message_id))  # call this on parent message to grab all data
+        return
+    elif (message.reference and "!run" in message.content):
+        if int(os.environ.get("LEADS_ID")) not in author_role_ids:
+            await message.channel.send("Only leads can run snipes.")
+        else:
+            print("Running snipe")
+            # print(await message.channel.fetch_message(message.reference.message_id))
+            await execute_snipe(await message.channel.fetch_message(message.reference.message_id)) 
         return
     # check the following: robot isn't replying to itself, this message is in snipes, has an attachment, and an @ to tag someone
     elif (message.author.id == snipeBot.user.id 
@@ -63,12 +69,22 @@ async def on_message(message):
         return
     print("A snipe has occured...")
     # await message.channel.send("Score keeping has not been implemented yet. Stay tuned...")
+    print(message)
+    await execute_snipe(message)
+    return
+    
+async def execute_snipe(message):
+    '''If a snipe fails because SnipeBot is off for some reason (someone unplugged him in the HVL), this code
+    is what is used to rerun snipes. Also, this is used by the original block of code to run snipes. '''
+    if not message.attachments or not message.mentions:
+        await message.channel.send("Run can only be called on a snipe message.")
+        print("Run was called on an invalid message.")
+        return
     verdict = await update_score(message)
     await message.channel.send(verdict)
     await update_score(message, True)
     return
-    
-    
+
 async def update_score(message, alltime=False):
     """Update the snipe scores following the snipe. 
     This should update the score, and be accounted for in a person's head to head tallies. 
@@ -205,6 +221,10 @@ async def getNicknames(message):
     Returns: tuple containing:
     Sniper: str - First name of either nickname or discord name
     Snipee: list[str] - list of first names of snipe victims"""
+    # member = await message.guild.fetch_member(message.author.id)
+    # display_name = member.display_name
+    # print(display_name)
+    # print(message.author)
     sniper = get_first_name(message.author)  
     snipee = [get_first_name(victim) for victim in message.mentions]
     return (sniper, snipee)
